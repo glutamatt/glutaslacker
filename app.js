@@ -45,7 +45,7 @@ var getBucketFileContent = function(bucket, callback) {
 var onBucketChange = function(previousBucket, newBucket) {
     async.waterfall([
         function (callback)          { getBucketFileContent(previousBucket, callback)},
-        function (content, callback) { dropbox.authenticate( function(err, client){ err || callback(null, content)})},
+        function (content, callback) { dropbox.authenticate( function(err, client){ callback(err, content)})},
         function (content, callback) { dropbox.writeFile(previousBucket + ".slack", content, callback)}
     ], function (err, results) { err && logger.log(err)})
 }
@@ -62,15 +62,14 @@ var getCurrentBucket = (function (onChanged) {
     }
 })(onBucketChange);
 
-slackClient.get("rtm.start?pretty=1&token="+slackToken, function(err, res, body) {
+slackClient.get("rtm.start?token="+slackToken, function(err, res, body) {
     if (err) { logger.log(err) ; return }
     var ws = new WebSocket(body.url);
     ws.on('message', function(raw) {
         var data = JSON.parse(raw)
-        if (isDataPersistable(data))
-            persistMessage(getCurrentBucket(), data.channel, {user:data.user, text:data.text})
+        isDataPersistable(data) && persistMessage(getCurrentBucket(), data.channel, {user:data.user, text:data.text})
     })
-})  
+})
 
 app.get('/', function (req, res) {
   res.send('Hello World!');
