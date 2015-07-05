@@ -47,11 +47,21 @@ var getBucketFileContent = function(bucket, callback) {
     })
 }
 
+var cleanBucket = function(bucket, callback) {
+    redis.srem('buckets', bucket)
+    redis.smembers('channels_by_bucket:' + bucket, function(err, channels) {
+        err ? callback(err) : async.each(channels, function(channel, cb) {
+            redis.del('messages_by_bucket_channel:' + bucket + ':' + channel, cb)
+        }, function (err) { err ? callback(err) : redis.del('channels_by_bucket:' + bucket, callback) })
+    })
+}
+
 var onBucketChange = function(previousBucket, newBucket) {
     async.waterfall([
         function (callback)          { getBucketFileContent(previousBucket, callback)},
         function (content, callback) { dropbox.authenticate( function(err, client){ callback(err, content)})},
-        function (content, callback) { dropbox.writeFile(previousBucket + ".slack", content, callback)}
+        function (content, callback) { dropbox.writeFile(previousBucket + ".slack", content, callback)},
+        function (stats, callback)   { cleanBucket(previousBucket, callback) }
         //todo : http://coffeedoc.info/github/dropbox/dropbox-js/master/classes/Dropbox/Client.html#resumableUploadStep-instance
     ], function (err, results) { err && logger.log(err)})
 }
