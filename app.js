@@ -1,4 +1,9 @@
-var appConfig = require('./appConfig')
+var envConfig = (process.env.SLACK_TOKEN && process.env.DROPBOX_KEY && process.env.DROPBOX_TOKEN) ? {
+    slackToken: process.env.SLACK_TOKEN,
+    dropboxKey: process.env.DROPBOX_KEY,
+    dropboxToken: process.env.DROPBOX_TOKEN,
+} : false;
+var appConfig = envConfig || require('./appConfig')
 var slackToken = appConfig.slackToken
 var dropboxCredentials = {
     key: appConfig.dropboxKey,
@@ -14,7 +19,7 @@ var dateFormat = require('dateformat');
 var logger = require('tracer').colorConsole();
 var slackClient = httpJson.createClient('https://slack.com/api/');
 var app = express();
-var redis = new Redis();
+var redis = new Redis(process.env.REDISCLOUD_URL || null)
 var Dropbox = require("dropbox");
 var dropbox =  new Dropbox.Client(dropboxCredentials);
 
@@ -47,11 +52,12 @@ var onBucketChange = function(previousBucket, newBucket) {
         function (callback)          { getBucketFileContent(previousBucket, callback)},
         function (content, callback) { dropbox.authenticate( function(err, client){ callback(err, content)})},
         function (content, callback) { dropbox.writeFile(previousBucket + ".slack", content, callback)}
+        //todo : http://coffeedoc.info/github/dropbox/dropbox-js/master/classes/Dropbox/Client.html#resumableUploadStep-instance
     ], function (err, results) { err && logger.log(err)})
 }
 
 var getCurrentBucket = (function (onChanged) {
-    var get = function() { return dateFormat(new Date(), 'yyyymmddHHMM')}
+    var get = function() { return dateFormat(new Date(), 'yyyymmddHH')}
     var currentBucket = get()
     return function () { 
         var current = get()
@@ -75,7 +81,7 @@ app.get('/', function (req, res) {
   res.send('Hello World!');
 });
 
-var server = app.listen(3000, function () {
+var server = app.listen(process.env.PORT || 3000, function () {
   var adress = server.address()
   logger.log('Example app listening at http://%s:%s', adress.address, adress.port)
 })
