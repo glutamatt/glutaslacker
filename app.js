@@ -87,9 +87,26 @@ slackClient.get("rtm.start?token="+slackToken, function(err, res, body) {
     })
 })
 
+var keepAliveUrl = '';
+var keepAliveSecure = false;
 app.get('/', function (req, res) {
-  res.send('Hello World!');
+    if (req.headers.host) {
+        keepAliveSecure = req.secure
+        keepAliveUrl = req.headers.host + '/?keepAlive';
+    }
+    res.send('Ping active on ' + keepAliveUrl);
 });
+
+setInterval(function() {
+    if (!keepAliveUrl) return
+    var date = new Date()
+    date.setTime((120 + date.getTimezoneOffset())*60*1000 + Date.now()) // set Paris Time
+    var hour = dateFormat(date, 'H')
+    if (hour > 7 && hour < 23) {
+        var scheme = 'http' + (keepAliveSecure ? 's' : '')
+        require(scheme).get(scheme + '://' + keepAliveUrl)
+    }
+}, 1000 * 60 * 15)
 
 var server = app.listen(process.env.PORT || 3000, function () {
   var adress = server.address()
